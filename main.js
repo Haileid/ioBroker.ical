@@ -473,7 +473,14 @@ function colorizeDates(date, today, tomorrow, dayafter, col, calName) {
 function checkForEvents(reason, today, event, fullday, realnow) {
     // show unknown events
     var result = true;
-
+	//define tomorrow
+	var tomorrow = new Date();
+	tomorrow.setDate(today.getDate() + 1);
+	tomorrow.setHours(0,0,0,0); //set tomorrow to full day
+	var tomorrow_time = new Date();
+	tomorrow_time.setDate(realnow.getDate()+1); //set tomorrow time to same time like now, but tomorrow
+    
+	
     // Schauen ob es ein Event in der Tabelle gibt
     for (var i = 0; i < events.length; i++) {
         if (reason.indexOf(events[i].name) !== -1) {
@@ -490,22 +497,50 @@ function checkForEvents(reason, today, event, fullday, realnow) {
                 } else {
                     adapter.log.debug('Event with time: '  + event.start + ' ' + realnow + ' ' + event.end);
                 }
-
-                // If yet processed
+				event_is_today = true;
+                
+            }
+            //break;
+			
+			 // If full day event
+            // Follow processing only if event is tomorrow
+            if ((fullday  && (event.start <= tomorrow)   && (tomorrow   <= event.end)) || // full day ######################################## hier noch 1 Tag addieren
+                (!fullday && (event.start <= tomorrow_time) && (tomorrow_time <= event.end))) { // with time
+                if (fullday) {
+                    adapter.log.debug('Event (full day) tomorrow: ' + event.start + ' ' + today   + ' ' + event.end);
+                } else {
+                    adapter.log.debug('Event with time tomorrow: '  + event.start + ' ' + realnow + ' ' + event.end);
+                }
+				event_is_tomorrow = true;
+                
+            }
+            //break;
+			if(event_is_today || event_is_tomorrow){ //proceed if event is either today or tomorrow
+				// If yet processed
                 if (events[i].processed) {
                     // nothing to do
                     adapter.log.debug('Event ' + events[i].name + ' yet processed');
                 } else {
                     // Process event
                     events[i].processed = true;
-                    if (!events[i].state) {
-                        events[i].state = true;
-                        adapter.log.info('Set events.' + events[i].name + ' to true');
-                        adapter.setState('events.' + events[i].name, {val: events[i].state, ack: true});
-                    }
+					if(event_is_today)
+					{
+						if (!events[i].state) {
+							events[i].state = true;
+							adapter.log.info('Set events.' + events[i].name + ' to true');
+							adapter.setState('events.' + events[i].name, {val: events[i].state, ack: true});
+						}
+					}
+					if(event_is_tomorrow)
+					{
+						if (!events[i].stateTomorrow) {
+							events[i].stateTomorrow = true;
+							adapter.log.info('Set events.' + events[i].name + ' Tomorrow to true');
+							adapter.setState('events.' + events[i].name + 'Tomorrow', {val: events[i].stateTomorrow, ack: true});
+						}
+					}
                 }
-            }
-            //break;
+			}
         }
     }
     return result;
@@ -516,10 +551,12 @@ function initEvent(name, display, callback) {
         name:      name,
         processed: false,
         state:     null,
+		stateTomorrow: false,
         display:   display
     };
 
     events.push(obj);
+
 
     adapter.getState('events.' + name, function (err, state) {
         if (err || !state) {
@@ -527,6 +564,15 @@ function initEvent(name, display, callback) {
             adapter.setState('events.' + name, {val: obj.state, ack: true});
         } else {
             obj.state = state.val;
+        }
+        if (callback) callback(name);
+    });
+	adapter.getState('events.' + name + 'Tomorrow', function (err, state) {
+        if (err || !stateTomorrow) {
+            obj.stateTomorrow = false;
+            adapter.setState('events.' + name + 'Tomorrow', {val: obj.stateTomorrow, ack: true});
+        } else {
+            obj.stateTomorrow = state.val;
         }
         if (callback) callback(name);
     });
@@ -608,6 +654,20 @@ function syncUserEvents(callback) {
                         }
                     }, function (err, id) {
                         adapter.log.info('Event "' + id.id + '" created');
+                    });
+					adapter.setObject('events.' + toAdd[i] + 'tomorrow', {
+                        type: 'state',
+                        common: {
+                            name: toAdd[i],
+                            type: 'boolean',
+                            role: 'indicator'
+                        },
+                        native: {
+                            enabled: adapter.config.events[j].enabled,
+                            display: adapter.config.events[j].display
+                        }
+                    }, function (err, id) {
+                        adapter.log.info('Event "' + id.id + '"Tomorrow created');
                     });
                     break;
                 }
@@ -977,8 +1037,16 @@ function displayDates() {
         if (!events[j].processed && events[j].state) {
             count++;
             events[j].state = false;
+			events[j].stateTomorrow = false;
             // Set to false
             adapter.setState('events.' + events[j].name, {val: events[j].state, ack: true}, function () {
+                if (!--count) {
+                    setTimeout(function () {
+                        adapter.stop();
+                    }, 5000);
+                }
+            });
+			adapter.setState('events.' + events[j].name, {val: events[j].stateTomorrow, ack: true}, function () {
                 if (!--count) {
                     setTimeout(function () {
                         adapter.stop();
