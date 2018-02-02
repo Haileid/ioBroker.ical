@@ -568,7 +568,7 @@ function initEvent(name, display, callback) {
         if (callback) callback(name);
     });
 	adapter.getState('events.' + name + 'Tomorrow', function (err, state) {
-        if (err || !stateTomorrow) {
+        if (err || !state) {
             obj.stateTomorrow = false;
             adapter.setState('events.' + name + 'Tomorrow', {val: obj.stateTomorrow, ack: true});
         } else {
