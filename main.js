@@ -515,6 +515,8 @@ function checkForEvents(reason, today, event, fullday, realnow) {
                 
             }
             //break;
+			
+			log("debug: heute? " + event_is_today + " morgen?: " + event_is_tomorrow);
 			if(event_is_today || event_is_tomorrow){ //proceed if event is either today or tomorrow
 				// If yet processed
                 if (events[i].processed) {
