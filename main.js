@@ -483,6 +483,8 @@ function checkForEvents(reason, today, event, fullday, realnow) {
 	
     // Schauen ob es ein Event in der Tabelle gibt
     for (var i = 0; i < events.length; i++) {
+		var event_is_today = false;
+		var event_is_tomorrow = false;
         if (reason.indexOf(events[i].name) !== -1) {
             // auslesen ob das Event angezeigt werden soll
             result = events[i].display;
